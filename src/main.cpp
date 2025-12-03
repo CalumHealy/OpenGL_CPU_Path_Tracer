@@ -50,21 +50,18 @@ GLuint createProgram() {
     return p;
 }
 
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_int_distribution<> distrib(0,255);
+uint32_t seed = 314159265;
+inline uint8_t rand8() {
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return (uint8_t)(seed & 0xFF);
+}
 
 void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b) {
-    // r = 0;
-    // g = 0;
-    // b = 0;
-    // Creating random device to get noise to test accumulation
-    // std::random_device rd;
-    // std::mt19937 gen(rd());
-    // std::uniform_int_distribution<> distrib(0,255);
-    r = distrib(gen);
-    g = distrib(gen);
-    b = distrib(gen);
+    r = rand8();
+    g = rand8();
+    b = rand8();
 }
 
 int main() {
