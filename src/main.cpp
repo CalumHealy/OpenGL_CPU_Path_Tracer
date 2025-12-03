@@ -1,6 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <random>
 #include <vector>
 #include <array>
 #include <string>
@@ -49,10 +50,21 @@ GLuint createProgram() {
     return p;
 }
 
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<> distrib(0,255);
+
 void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b) {
-    r = 125;
-    g = 125;
-    b = 125;
+    // r = 0;
+    // g = 0;
+    // b = 0;
+    // Creating random device to get noise to test accumulation
+    // std::random_device rd;
+    // std::mt19937 gen(rd());
+    // std::uniform_int_distribution<> distrib(0,255);
+    r = distrib(gen);
+    g = distrib(gen);
+    b = distrib(gen);
 }
 
 int main() {
@@ -111,6 +123,9 @@ int main() {
     double lastTime = glfwGetTime();
     int frames = 0;
     float fps = 0.0f;
+    
+    std::vector<float> accumPixels(WIDTH * HEIGHT * 3, 0.0f);
+    int iterations = 0;
 
     while (!glfwWindowShouldClose(window)) {
         double now = glfwGetTime();
@@ -121,8 +136,8 @@ int main() {
             lastTime = now;
         }
 
-        std::array<int,3> currentPixel = {125,125,125};
-        std::array<int,3> prevPixel = {125,125,125};
+        // std::array<int,3> currentPixel = {255,255,255};
+        // std::array<int,3> prevPixel = {255,255,255};
         unsigned char r, g, b;
 
         // --- Fill pixel buffer ---
@@ -130,11 +145,17 @@ int main() {
             for (int x=0;x<WIDTH;x++) {
                 int i = (y*WIDTH+x)*3;
                 calculatePixel(x, y, r, g, b);
-                pixels[i+0] = r;
-                pixels[i+1] = g;
-                pixels[i+2] = b;
+                // Accumulate in float buffer
+                accumPixels[i + 0] += (float)r;
+                accumPixels[i + 1] += (float)g;
+                accumPixels[i + 2] += (float)b;
+                // Compute average to display
+                pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (iterations + 1));
+                pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (iterations + 1));
+                pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (iterations + 1));
             }
         }
+        iterations++;
 
         // --- Draw FPS ---
         std::string fpsText = "FPS: " + std::to_string((int)fps);
