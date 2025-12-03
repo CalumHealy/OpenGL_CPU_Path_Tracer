@@ -49,8 +49,10 @@ GLuint createProgram() {
     return p;
 }
 
-std::array<int,3> calculatePixel(std::array<int,3>& prevPixel) {
-    return prevPixel; // placeholder
+void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b) {
+    r = 125;
+    g = 125;
+    b = 125;
 }
 
 int main() {
@@ -120,16 +122,17 @@ int main() {
         }
 
         std::array<int,3> currentPixel = {125,125,125};
-        std::array<int,3> prevPixel = {0,0,0};
+        std::array<int,3> prevPixel = {125,125,125};
+        unsigned char r, g, b;
 
         // --- Fill pixel buffer ---
         for (int y=0;y<HEIGHT;y++) {
             for (int x=0;x<WIDTH;x++) {
                 int i = (y*WIDTH+x)*3;
-                currentPixel = calculatePixel(prevPixel);
-                pixels[i+0] = currentPixel[0];
-                pixels[i+1] = currentPixel[1];
-                pixels[i+2] = currentPixel[2];
+                calculatePixel(x, y, r, g, b);
+                pixels[i+0] = r;
+                pixels[i+1] = g;
+                pixels[i+2] = b;
             }
         }
 
