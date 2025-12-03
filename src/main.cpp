@@ -131,6 +131,7 @@ int main() {
                         GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glfwSwapInterval(1); // Enable/Disable VSync (0: off, 1: on)
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
