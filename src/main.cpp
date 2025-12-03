@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <array>
 #include <string>
 #include <cmath>
 #include "font8x8_basic.h"
@@ -47,6 +48,12 @@ GLuint createProgram() {
     glDeleteShader(v);
     glDeleteShader(f);
     return p;
+}
+
+// struct Pixel { int r, g, b; };
+
+std::array<int,3> calculatePixel(std::array<int,3>& prevPixel) {
+    return prevPixel;
 }
 
 int main() {
@@ -107,6 +114,8 @@ int main() {
             frames = 0;
             lastTime = now;
         }
+        std::array<int,3> currentPixel = {125, 125, 125};
+        std::array<int,3> prevPixel = {0, 0, 0};
 
         // --- Draw simple gradient ---
         for (int y = 0; y < HEIGHT; ++y) {
@@ -115,9 +124,10 @@ int main() {
                 // pixels[i+0] = (unsigned char)((x + (int)(now*50)) % 256);
                 // pixels[i+1] = (unsigned char)((y + (int)(now*20)) % 256);
                 // pixels[i+2] = 100;
-                pixels[i+0] = 150;
-                pixels[i+1] = 255;
-                pixels[i+2] = 0;
+                currentPixel = calculatePixel(prevPixel);
+                pixels[i+0] = currentPixel[0];
+                pixels[i+1] = currentPixel[1];
+                pixels[i+2] = currentPixel[2];
             }
         }
 
@@ -131,7 +141,7 @@ int main() {
                         GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glfwSwapInterval(1); // Enable/Disable VSync (0: off, 1: on)
+        glfwSwapInterval(0); // Enable/Disable VSync (0: off, 1: on)
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
