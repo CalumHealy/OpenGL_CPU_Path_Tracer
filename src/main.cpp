@@ -1,7 +1,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <random>
+#include <thread>
+#include <atomic>
 #include <vector>
 #include <array>
 #include <string>
@@ -62,6 +63,35 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     r = rand8();
     g = rand8();
     b = rand8();
+    // r = 180;
+    // g = 180; 
+    // b = 180;
+}
+
+void renderChunk(
+    int startY, int endY,
+    std::vector<float>& accumPixels,
+    std::vector<unsigned char>& pixels,
+    int iterations)
+{
+    unsigned char r, g, b;
+
+    for (int y = startY; y < endY; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+
+            int i = (y * WIDTH + x) * 3;
+
+            calculatePixel(x, y, r, g, b);
+
+            accumPixels[i + 0] += (float)r;
+            accumPixels[i + 1] += (float)g;
+            accumPixels[i + 2] += (float)b;
+
+            pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (iterations + 1));
+            pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (iterations + 1));
+            pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (iterations + 1));
+        }
+    }
 }
 
 int main() {
@@ -133,25 +163,32 @@ int main() {
             lastTime = now;
         }
 
-        // std::array<int,3> currentPixel = {255,255,255};
-        // std::array<int,3> prevPixel = {255,255,255};
         unsigned char r, g, b;
 
-        // --- Fill pixel buffer ---
-        for (int y=0;y<HEIGHT;y++) {
-            for (int x=0;x<WIDTH;x++) {
-                int i = (y*WIDTH+x)*3;
-                calculatePixel(x, y, r, g, b);
-                // Accumulate in float buffer
-                accumPixels[i + 0] += (float)r;
-                accumPixels[i + 1] += (float)g;
-                accumPixels[i + 2] += (float)b;
-                // Compute average to display
-                pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (iterations + 1));
-                pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (iterations + 1));
-                pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (iterations + 1));
-            }
+        // --- Fill pixel buffer with multithreading ---
+        int numThreads = std::thread::hardware_concurrency();
+        if (numThreads == 0) numThreads = 4;  // fallback
+
+        std::vector<std::thread> threads;
+        threads.reserve(numThreads);
+
+        int rowsPerThread = HEIGHT / numThreads;
+
+        for (int t = 0; t < numThreads; t++) {
+            int startY = t * rowsPerThread;
+            int endY = (t == numThreads - 1) ? HEIGHT : startY + rowsPerThread;
+
+            threads.emplace_back(
+                renderChunk,
+                startY,
+                endY,
+                std::ref(accumPixels),
+                std::ref(pixels),
+                iterations
+            );
         }
+        // Wait for all threads
+        for (auto& th : threads) th.join();
         iterations++;
 
         // --- Draw FPS ---
