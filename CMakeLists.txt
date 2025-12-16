@@ -19,6 +19,7 @@ add_executable(OpenGLProject
 # ---- GLAD include path ----
 target_include_directories(OpenGLProject PRIVATE
     ${CMAKE_SOURCE_DIR}/external/glad/include
+    ${CMAKE_SOURCE_DIR}/external/glm
 )
 
 # ---- Add GLFW as a subproject (source folder must contain CMakeLists.txt) ----
