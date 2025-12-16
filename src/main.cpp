@@ -1,13 +1,16 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <atomic>
 #include <vector>
 #include <array>
 #include <string>
+#include <nlohmann/json.hpp>
 #include "font8x8_basic.h"
 #include <glm/glm.hpp>
+using json = nlohmann::json;
 
 const unsigned int WIDTH = 1920;
 const unsigned int HEIGHT = 1080;
@@ -233,6 +236,36 @@ void renderChunk(
 }
 
 int main() {
+    // std::ifstream test("config.json");
+    // --- Read Configuration File ---
+    // std::ifstream configFile("config.txt");
+    // if (!configFile.is_open()) {
+    //     std::cerr << "Failed to open config.txt" << std::endl;
+    //     return 1;
+    // }
+    // std::unordered_map<std::string, std::string> config;
+    // std::string key, value;
+    // while (configFile >> key >> value) {
+    //     config[key] = value;
+    // }
+    // configFile.close();
+    std::ifstream file("config.json");
+    if (!file.is_open()) {
+        std::cerr << "Failed to open config.json" << std::endl;
+        return 1;
+    }
+    json config;
+    file >> config;
+    if (!config.contains("WIDTH") || !config.contains("HEIGHT") || !config.contains("FOV")) {
+        std::cerr << "Config file missing required fields!" << std::endl;
+        return 1;
+    }
+    int width = config["WIDTH"];
+    int height = config["HEIGHT"];
+    float fov = config["FOV"];
+    std::cout << width << std::endl;
+    // TODO: Modify code to use config file
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
