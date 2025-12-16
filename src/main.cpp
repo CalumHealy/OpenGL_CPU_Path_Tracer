@@ -88,7 +88,7 @@ struct Scene {
 
 struct Ray {
     glm::vec3 origin;
-    glm::vec3 diection; // Normalized
+    glm::vec3 direction; // Normalized
 };
 
 glm::vec3 normalizeRay(glm::vec3 direction) {
@@ -115,19 +115,93 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     // g = 180; 
     // b = 180;
     // std::cout << "Camera Position: " << camera.position[0] << std::endl;
-    std::cout << "X: " << x << std::endl;
-    std::cout << "Y: " << y << std::endl;
-    std::cout << "v0 x: " << scene.vertices[scene.triangles[0].v0][0] << std::endl;
-    std::cout << "v0 y: " << scene.vertices[scene.triangles[0].v0][1] << std::endl;
-    std::cout << "v0 z: " << scene.vertices[scene.triangles[0].v0][2] << std::endl;
-    std::cout << "v1 x: " << scene.vertices[scene.triangles[0].v1][0] << std::endl;
-    std::cout << "v1 y: " << scene.vertices[scene.triangles[0].v1][1] << std::endl;
-    std::cout << "v1 z: " << scene.vertices[scene.triangles[0].v1][2] << std::endl;
-    std::cout << "v2 x: " << scene.vertices[scene.triangles[0].v2][0] << std::endl;
-    std::cout << "v2 y: " << scene.vertices[scene.triangles[0].v2][1] << std::endl;
-    std::cout << "v2 z: " << scene.vertices[scene.triangles[0].v2][2] << std::endl;
+    // std::cout << "X: " << x << std::endl;
+    // std::cout << "Y: " << y << std::endl;
+    // std::cout << "v0 x: " << scene.vertices[scene.triangles[0].v0][0] << std::endl;
+    // std::cout << "v0 y: " << scene.vertices[scene.triangles[0].v0][1] << std::endl;
+    // std::cout << "v0 z: " << scene.vertices[scene.triangles[0].v0][2] << std::endl;
+    // std::cout << "v1 x: " << scene.vertices[scene.triangles[0].v1][0] << std::endl;
+    // std::cout << "v1 y: " << scene.vertices[scene.triangles[0].v1][1] << std::endl;
+    // std::cout << "v1 z: " << scene.vertices[scene.triangles[0].v1][2] << std::endl;
+    // std::cout << "v2 x: " << scene.vertices[scene.triangles[0].v2][0] << std::endl;
+    // std::cout << "v2 y: " << scene.vertices[scene.triangles[0].v2][1] << std::endl;
+    // std::cout << "v2 z: " << scene.vertices[scene.triangles[0].v2][2] << std::endl;
     // --- Convert world space to screen space [?] ---
+    float minX = std::min(
+        scene.vertices[scene.triangles[0].v0][0],
+        std::min(
+            scene.vertices[scene.triangles[0].v1][0],
+            scene.vertices[scene.triangles[0].v2][0]
+        )
+    );
+    float maxX = std::max(
+        scene.vertices[scene.triangles[0].v0][0],
+        std::max(
+            scene.vertices[scene.triangles[0].v1][0],
+            scene.vertices[scene.triangles[0].v2][0]
+        )
+    );
+    float minY = std::min(
+        scene.vertices[scene.triangles[0].v0][1],
+        std::min(
+            scene.vertices[scene.triangles[0].v1][1],
+            scene.vertices[scene.triangles[0].v2][1]
+        )
+    );
+    float maxY = std::max(
+        scene.vertices[scene.triangles[0].v0][1],
+        std::max(
+            scene.vertices[scene.triangles[0].v1][1],
+            scene.vertices[scene.triangles[0].v2][1]
+        )
+    );
+    float triangleWidth = maxX - minX;
+    float triangleHeight = maxY - minY;
+    float scaleX = WIDTH / triangleWidth;
+    float scaleY = HEIGHT / triangleHeight;
+    float scale = std::min(scaleX, scaleY);
+    std::vector<glm::vec2> screenVertices;
+    for (const glm::vec3& vertex : {
+        scene.vertices[scene.triangles[0].v0],
+        scene.vertices[scene.triangles[0].v1],
+        scene.vertices[scene.triangles[0].v2]
+    }) {
+        float screenX = (vertex.x - minX) * scale;
+        float screenY = (vertex.y - minY) * scale;
+        screenVertices.push_back(glm::vec2(screenX, screenY));
+    }
+    glm::vec2 A = screenVertices[0];
+    glm::vec2 B = screenVertices[1];
+    glm::vec2 C = screenVertices[2];
 
+    glm::vec2 P(x, y);
+    // Vectors from A
+    glm::vec2 v0 = B - A;
+    glm::vec2 v1 = C - A;
+    glm::vec2 v2 = P - A;
+    // Compute dot products
+    float d00 = glm::dot(v0, v0);
+    float d01 = glm::dot(v0, v1);
+    float d11 = glm::dot(v1, v1);
+    float d20 = glm::dot(v2, v0);
+    float d21 = glm::dot(v2, v1);
+    // Compute barycentric coordinates
+    float denom = d00 * d11 - d01 * d01;
+    float u = (d11 * d20 - d01 * d21) / denom;
+    float v = (d00 * d21 - d01 * d20) / denom;
+    float w = 1.0f - u - v;
+
+    bool inside = (u >= 0) && (v >= 0) && (w >= 0);
+
+    if (inside) {
+        r = 255;
+        g = 255;
+        b = 255;
+    } else {
+        r = 0;
+        g = 0;
+        b = 0;
+    }
 }
 
 void renderChunk(
@@ -164,7 +238,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "CPU Pixel Buffer with PBOs", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "CPU Path Tracer", nullptr, nullptr);
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
