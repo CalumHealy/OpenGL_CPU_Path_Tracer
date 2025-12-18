@@ -12,8 +12,8 @@
 #include <glm/glm.hpp>
 using json = nlohmann::json;
 
-const unsigned int WIDTH = 1920;
-const unsigned int HEIGHT = 1080;
+// const unsigned int WIDTH = 1920;
+// const unsigned int HEIGHT = 1080;
 
 const char* vertexShaderSource = R"(
 #version 330 core
@@ -94,6 +94,16 @@ struct Ray {
     glm::vec3 direction; // Normalized
 };
 
+struct RenderState {
+    int width;
+    int height;
+    Camera camera;
+    const Scene* scene;
+    int iterations;
+    float invWidth;
+    float invHeight;
+};
+
 glm::vec3 normalizeRay(glm::vec3 direction) {
     return glm::normalize(direction);
 }
@@ -106,7 +116,7 @@ inline uint8_t rand8() {
     return (uint8_t)(seed & 0xFF);
 }
 
-void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, Camera camera, Scene scene) {
+void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, const RenderState& state) {
     // X is number of pixel across length of screen (0 - WIDTH)
     // Y is number of pixel down screen (0 - HEIGHT)
     // r, g, and b are references to the values for the pixel colour
@@ -131,43 +141,43 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     // std::cout << "v2 z: " << scene.vertices[scene.triangles[0].v2][2] << std::endl;
     // --- Convert world space to screen space [?] ---
     float minX = std::min(
-        scene.vertices[scene.triangles[0].v0][0],
+        state.scene->vertices[state.scene->triangles[0].v0][0],
         std::min(
-            scene.vertices[scene.triangles[0].v1][0],
-            scene.vertices[scene.triangles[0].v2][0]
+            state.scene->vertices[state.scene->triangles[0].v1][0],
+            state.scene->vertices[state.scene->triangles[0].v2][0]
         )
     );
     float maxX = std::max(
-        scene.vertices[scene.triangles[0].v0][0],
+        state.scene->vertices[state.scene->triangles[0].v0][0],
         std::max(
-            scene.vertices[scene.triangles[0].v1][0],
-            scene.vertices[scene.triangles[0].v2][0]
+            state.scene->vertices[state.scene->triangles[0].v1][0],
+            state.scene->vertices[state.scene->triangles[0].v2][0]
         )
     );
     float minY = std::min(
-        scene.vertices[scene.triangles[0].v0][1],
+        state.scene->vertices[state.scene->triangles[0].v0][1],
         std::min(
-            scene.vertices[scene.triangles[0].v1][1],
-            scene.vertices[scene.triangles[0].v2][1]
+            state.scene->vertices[state.scene->triangles[0].v1][1],
+            state.scene->vertices[state.scene->triangles[0].v2][1]
         )
     );
     float maxY = std::max(
-        scene.vertices[scene.triangles[0].v0][1],
+        state.scene->vertices[state.scene->triangles[0].v0][1],
         std::max(
-            scene.vertices[scene.triangles[0].v1][1],
-            scene.vertices[scene.triangles[0].v2][1]
+            state.scene->vertices[state.scene->triangles[0].v1][1],
+            state.scene->vertices[state.scene->triangles[0].v2][1]
         )
     );
     float triangleWidth = maxX - minX;
     float triangleHeight = maxY - minY;
-    float scaleX = WIDTH / triangleWidth;
-    float scaleY = HEIGHT / triangleHeight;
+    float scaleX = state.width / triangleWidth;
+    float scaleY = state.height / triangleHeight;
     float scale = std::min(scaleX, scaleY);
     std::vector<glm::vec2> screenVertices;
     for (const glm::vec3& vertex : {
-        scene.vertices[scene.triangles[0].v0],
-        scene.vertices[scene.triangles[0].v1],
-        scene.vertices[scene.triangles[0].v2]
+        state.scene->vertices[state.scene->triangles[0].v0],
+        state.scene->vertices[state.scene->triangles[0].v1],
+        state.scene->vertices[state.scene->triangles[0].v2]
     }) {
         float screenX = (vertex.x - minX) * scale;
         float screenY = (vertex.y - minY) * scale;
@@ -211,26 +221,28 @@ void renderChunk(
     int startY, int endY,
     std::vector<float>& accumPixels,
     std::vector<unsigned char>& pixels,
-    int iterations,
-    Camera camera,
-    Scene scene)
-{
+    const RenderState& state
+) {
     unsigned char r, g, b;
+    const int width = state.width;
 
     for (int y = startY; y < endY; y++) {
-        for (int x = 0; x < WIDTH; x++) {
+        for (int x = 0; x < width; x++) {
 
-            int i = (y * WIDTH + x) * 3;
+            int i = (y * width + x) * 3;
 
-            calculatePixel(x, y, r, g, b, camera, scene);
+            calculatePixel(x, y, r, g, b, state);
 
             accumPixels[i + 0] += (float)r;
             accumPixels[i + 1] += (float)g;
             accumPixels[i + 2] += (float)b;
 
-            pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (iterations + 1));
-            pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (iterations + 1));
-            pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (iterations + 1));
+            // pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (state.iterations + 1));
+            // pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (state.iterations + 1));
+            // pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (state.iterations + 1));
+            pixels[i + 0] = (accumPixels[i + 0] / (state.iterations + 1));
+            pixels[i + 1] = (accumPixels[i + 1] / (state.iterations + 1));
+            pixels[i + 2] = (accumPixels[i + 2] / (state.iterations + 1));
         }
     }
 }
@@ -256,26 +268,35 @@ int main() {
     }
     json config;
     file >> config;
-    if (!config.contains("WIDTH") || !config.contains("HEIGHT") || !config.contains("FOV")) {
-        std::cerr << "Config file missing required fields!" << std::endl;
-        return 1;
-    }
-    int width = config["WIDTH"];
-    int height = config["HEIGHT"];
-    float fov = config["FOV"];
-    std::cout << width << std::endl;
-    // TODO: Modify code to use config file
+    // if (!config.contains("WIDTH") || !config.contains("HEIGHT") || !config.contains("FOV")) {
+    //     std::cerr << "Config file missing required fields!" << std::endl;
+    //     return 1;
+    // }
+    // int WIDTH = config["WIDTH"];
+    // int HEIGHT = config["HEIGHT"];
+    // float fov = config["FOV"];
+    // std::cout << WIDTH << std::endl;
+    // float cameraPositionZ = config["CAMERA"]["POSITION"][2];
+    // std::cout << "Camera Position Z: " << cameraPositionZ << std::endl;
+    // int verticesListLength = config["VERTICES"].size();
+    // std::cout << "Vertices List Length: " << verticesListLength << std::endl;
+    RenderState state;
+    state.width = config["WIDTH"];
+    state.height = config["HEIGHT"];
+    state.iterations = 0;
+    state.invWidth = 1.0f / state.width;
+    state.invHeight = 1.0f / state.height;
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "CPU Path Tracer", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(state.width, state.height, "CPU Path Tracer", nullptr, nullptr);
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-    std::vector<unsigned char> pixels(WIDTH * HEIGHT * 3, 0);
+    std::vector<unsigned char> pixels(state.width * state.height * 3, 0);
 
     // --- Create texture ---
     GLuint tex;
@@ -283,7 +304,7 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, state.width, state.height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
     // --- Set up quad ---
     float verts[] = {-1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, 1, 0, 1};
@@ -311,7 +332,7 @@ int main() {
     glGenBuffers(2, pboIds);
     for (int i=0;i<2;i++) {
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[i]);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, WIDTH*HEIGHT*3, nullptr, GL_STREAM_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, state.width*state.height*3, nullptr, GL_STREAM_DRAW);
     }
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -322,11 +343,12 @@ int main() {
     int frames = 0;
     float fps = 0.0f;
     
-    std::vector<float> accumPixels(WIDTH * HEIGHT * 3, 0.0f);
+    std::vector<float> accumPixels(state.width * state.height * 3, 0.0f);
     int iterations = 0;
 
     // --- Create The Scene And Add Shapes ---
     Scene scene;
+    state.scene = &scene;
     scene.materials.push_back({
         MaterialType::Lambertian,
         {1.0f, 0.2f, 0.2f},
@@ -353,6 +375,7 @@ int main() {
         glm::vec3{0,1,0}, // Up
         90.0 // FOV
     };
+    state.camera = camera;
 
     while (!glfwWindowShouldClose(window)) {
         double now = glfwGetTime();
@@ -372,11 +395,11 @@ int main() {
         std::vector<std::thread> threads;
         threads.reserve(numThreads);
 
-        int rowsPerThread = HEIGHT / numThreads;
+        int rowsPerThread = state.height / numThreads;
 
         for (int t = 0; t < numThreads; t++) {
             int startY = t * rowsPerThread;
-            int endY = (t == numThreads - 1) ? HEIGHT : startY + rowsPerThread;
+            int endY = (t == numThreads - 1) ? state.height : startY + rowsPerThread;
 
             threads.emplace_back(
                 renderChunk,
@@ -384,9 +407,7 @@ int main() {
                 endY,
                 std::ref(accumPixels),
                 std::ref(pixels),
-                iterations,
-                camera,
-                scene
+                state
             );
         }
         // Wait for all threads
@@ -394,20 +415,20 @@ int main() {
         iterations++;
 
         // --- Draw FPS ---
-        std::string fpsText = "FPS: " + std::to_string((int)fps);
-        drawText(10,10,fpsText,pixels,WIDTH,HEIGHT);
+        std::string fpsText = "FPS: " + std::to_string((int)fps) + "\nHello";
+        drawText(10,10,fpsText,pixels,state.width,state.height);
 
         // --- Upload pixels using PBO ---
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[index]);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, WIDTH*HEIGHT*3, nullptr, GL_STREAM_DRAW); // orphan previous data
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, state.width*state.height*3, nullptr, GL_STREAM_DRAW); // orphan previous data
         void* ptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
         if(ptr) {
-            memcpy(ptr, pixels.data(), WIDTH*HEIGHT*3);
+            memcpy(ptr, pixels.data(), state.width*state.height*3);
             glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         }
 
         glBindTexture(GL_TEXTURE_2D, tex);
-        glTexSubImage2D(GL_TEXTURE_2D,0,0,0,WIDTH,HEIGHT,GL_RGB,GL_UNSIGNED_BYTE,nullptr);
+        glTexSubImage2D(GL_TEXTURE_2D,0,0,0,state.width,state.height,GL_RGB,GL_UNSIGNED_BYTE,nullptr);
 
         // Swap PBOs
         std::swap(index,nextIndex);
