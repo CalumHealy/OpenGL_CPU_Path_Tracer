@@ -79,10 +79,6 @@ struct Material {
     glm::vec3 emission;
 };
 
-// std::vector<glm::vec3> vertices;
-// std::vector<Triangle> triangles;
-// std::vector<Material> materials;
-
 struct Scene {
     std::vector<glm::vec3> vertices;
     std::vector<Triangle> triangles;
@@ -121,24 +117,9 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     // Y is number of pixel down screen (0 - HEIGHT)
     // r, g, and b are references to the values for the pixel colour
     // Ray direction and position can be derived from camera values
-    r = rand8();
-    g = rand8();
-    b = rand8();
-    // r = 180;
-    // g = 180; 
-    // b = 180;
-    // std::cout << "Camera Position: " << camera.position[0] << std::endl;
-    // std::cout << "X: " << x << std::endl;
-    // std::cout << "Y: " << y << std::endl;
-    // std::cout << "v0 x: " << scene.vertices[scene.triangles[0].v0][0] << std::endl;
-    // std::cout << "v0 y: " << scene.vertices[scene.triangles[0].v0][1] << std::endl;
-    // std::cout << "v0 z: " << scene.vertices[scene.triangles[0].v0][2] << std::endl;
-    // std::cout << "v1 x: " << scene.vertices[scene.triangles[0].v1][0] << std::endl;
-    // std::cout << "v1 y: " << scene.vertices[scene.triangles[0].v1][1] << std::endl;
-    // std::cout << "v1 z: " << scene.vertices[scene.triangles[0].v1][2] << std::endl;
-    // std::cout << "v2 x: " << scene.vertices[scene.triangles[0].v2][0] << std::endl;
-    // std::cout << "v2 y: " << scene.vertices[scene.triangles[0].v2][1] << std::endl;
-    // std::cout << "v2 z: " << scene.vertices[scene.triangles[0].v2][2] << std::endl;
+    // r = rand8();
+    // g = rand8();
+    // b = rand8();
     // --- Convert world space to screen space [?] ---
     float minX = std::min(
         state.scene->vertices[state.scene->triangles[0].v0][0],
@@ -223,13 +204,13 @@ void renderChunk(
     std::vector<unsigned char>& pixels,
     const RenderState& state
 ) {
-    unsigned char r, g, b;
     const int width = state.width;
+    float inv = 1.0f / (state.iterations + 1);
 
     for (int y = startY; y < endY; y++) {
         for (int x = 0; x < width; x++) {
-
             int i = (y * width + x) * 3;
+            unsigned char r, g, b;
 
             calculatePixel(x, y, r, g, b, state);
 
@@ -237,30 +218,18 @@ void renderChunk(
             accumPixels[i + 1] += (float)g;
             accumPixels[i + 2] += (float)b;
 
-            // pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (state.iterations + 1));
-            // pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (state.iterations + 1));
-            // pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (state.iterations + 1));
-            pixels[i + 0] = (accumPixels[i + 0] / (state.iterations + 1));
-            pixels[i + 1] = (accumPixels[i + 1] / (state.iterations + 1));
-            pixels[i + 2] = (accumPixels[i + 2] / (state.iterations + 1));
+            for (int c = 0; c < 3; c++) {
+                float val = accumPixels[i + c] * inv;
+                val = std::min(std::max(val, 0.0f), 255.0f);
+                pixels[i + c] = static_cast<unsigned char>(val);
+            }  
+
         }
     }
 }
 
 int main() {
-    // std::ifstream test("config.json");
     // --- Read Configuration File ---
-    // std::ifstream configFile("config.txt");
-    // if (!configFile.is_open()) {
-    //     std::cerr << "Failed to open config.txt" << std::endl;
-    //     return 1;
-    // }
-    // std::unordered_map<std::string, std::string> config;
-    // std::string key, value;
-    // while (configFile >> key >> value) {
-    //     config[key] = value;
-    // }
-    // configFile.close();
     std::ifstream file("config.json");
     if (!file.is_open()) {
         std::cerr << "Failed to open config.json" << std::endl;
@@ -268,18 +237,7 @@ int main() {
     }
     json config;
     file >> config;
-    // if (!config.contains("WIDTH") || !config.contains("HEIGHT") || !config.contains("FOV")) {
-    //     std::cerr << "Config file missing required fields!" << std::endl;
-    //     return 1;
-    // }
-    // int WIDTH = config["WIDTH"];
-    // int HEIGHT = config["HEIGHT"];
-    // float fov = config["FOV"];
-    // std::cout << WIDTH << std::endl;
-    // float cameraPositionZ = config["CAMERA"]["POSITION"][2];
-    // std::cout << "Camera Position Z: " << cameraPositionZ << std::endl;
-    // int verticesListLength = config["VERTICES"].size();
-    // std::cout << "Vertices List Length: " << verticesListLength << std::endl;
+    // TODO: Implement better config error handling
     RenderState state;
     state.width = config["WIDTH"];
     state.height = config["HEIGHT"];
@@ -344,7 +302,6 @@ int main() {
     float fps = 0.0f;
     
     std::vector<float> accumPixels(state.width * state.height * 3, 0.0f);
-    int iterations = 0;
 
     // --- Create The Scene And Add Shapes ---
     Scene scene;
@@ -407,12 +364,12 @@ int main() {
                 endY,
                 std::ref(accumPixels),
                 std::ref(pixels),
-                state
+                std::cref(state)
             );
         }
         // Wait for all threads
         for (auto& th : threads) th.join();
-        iterations++;
+        state.iterations++;
 
         // --- Draw FPS ---
         std::string fpsText = "FPS: " + std::to_string((int)fps) + "\nHello";

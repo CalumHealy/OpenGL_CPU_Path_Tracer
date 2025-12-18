@@ -72,4 +72,90 @@ Running the code using config["THING"] every time resulted in 1FPS (or likely lo
     - No mutation except output buffers
 
 ## 18/12/2025 3:08
-I replaced the config["THING"] with the RenderState and the FPS is now up to ~21FPS. The current state of the code is in commit 
+I replaced the config["THING"] with the RenderState and the FPS is now up to ~21FPS. The current state of the code is in commit 99a70f2513802460de1bd50ced8bc569e22bb9d8 (Forgot to add main.cpp changes to previous commit, adding now (I need to learn how to change/undo git commits)). I just noticed that the triangle starts to fade after a while, and goes completely black, then reappears at full brightness, only to fade again repeatedly. Something is going on with the iterations/scene data. 
+
+## 18/12/2025 3:15
+I just replaced 
+```
+threads.emplace_back(
+                renderChunk,
+                startY,
+                endY,
+                std::ref(accumPixels),
+                std::ref(pixels),
+                state
+            );
+```
+with 
+```
+threads.emplace_back(
+                renderChunk,
+                startY,
+                endY,
+                std::ref(accumPixels),
+                std::ref(pixels),
+                std::cref(state)
+            );
+```
+and the fading is now much slower. This indicates that the state object is the cause of the issue. I will ask Chet Jeopardy. One thing to note thought is that the FPS was the same. 
+
+## 18/12/2025 4:19
+I asked ChatGPT. I pointed out that I was incrementing the old iterations variable and not state.iterations, but I was using state.iterations in the averaging. I fixed this but the issue was still there. ChatGPT also said that clamping is essential in the pixel assigning lines. The last of these four methods uses clamping. 
+```
+            // pixels[i + 0] = accumPixels[i + 0] / (state.iterations + 1);
+            // pixels[i + 1] = accumPixels[i + 1] / (state.iterations + 1);
+            // pixels[i + 2] = accumPixels[i + 2] / (state.iterations + 1);
+
+            // pixels[i + 0] = (unsigned char)(accumPixels[i + 0] / (state.iterations + 1));
+            // pixels[i + 1] = (unsigned char)(accumPixels[i + 1] / (state.iterations + 1));
+            // pixels[i + 2] = (unsigned char)(accumPixels[i + 2] / (state.iterations + 1));
+
+            // pixels[i + 0] = static_cast<unsigned char>((accumPixels[i + 0] / (state.iterations + 1)));
+            // pixels[i + 1] = static_cast<unsigned char>((accumPixels[i + 1] / (state.iterations + 1)));
+            // pixels[i + 2] = static_cast<unsigned char>((accumPixels[i + 2] / (state.iterations + 1)));
+            
+            float inv = 1.0f / state.iterations;
+            pixels[i + 0] = (unsigned char)glm::clamp(accumPixels[i + 0] * inv, 0.0f, 255.0f);
+            pixels[i + 1] = (unsigned char)glm::clamp(accumPixels[i + 1] * inv, 0.0f, 255.0f);
+            pixels[i + 2] = (unsigned char)glm::clamp(accumPixels[i + 2] * inv, 0.0f, 255.0f);
+```
+ChatGPT says that the first method is fine if the values are definitely between 0 and 255, but when I implement emissive materials or multiple samples, I can get values below 0 or above 255. The clamping solves this, so I will keep the clamping. 
+
+## 18/12/2025 4:33
+Chet gave me a very different form of this which removes the glm::clamp and just uses conditional checks to keep it between 0 and 255. It now also puts the assigning in a loop, which probably helps reduce duplication with new multiple lines of conditionals. 
+```
+    for (int y = startY; y < endY; y++) {
+        for (int x = 0; x < width; x++) {
+
+            int i = (y * width + x) * 3;
+
+            calculatePixel(x, y, r, g, b, state);
+
+            accumPixels[i + 0] += (float)r;
+            accumPixels[i + 1] += (float)g;
+            accumPixels[i + 2] += (float)b;
+
+            float inv = 1.0f / (state.iterations + 1);
+
+            for (int c = 0; c < 3; c++) {
+                float val = accumPixels[i + c] * inv;
+                if (val < 0.0f) val = 0.0f;
+                else if (val > 255.0f) val = 255.0f;
+                pixels[i + c] = static_cast<unsigned char>(val);
+            }  
+
+        }
+    }
+```
+FPS is now around 33. 
+
+
+## 18/12/2025 4:44
+If else has now been replaced with std::min/max. The two of these apparently compile to similarly fast instructions so neither is objectively better than the other, but min/max shows intention better than if/else and it removes a line of code, so I'll go with it. It'ls also kind of cooler. 
+```
+val = std::min(std::max(val, 0.0f), 255.0f);
+```
+I'm not sure how I ended up doing all this when I'm supposed to be working on config file implementation. I think it was state.scene causing issues with pointers, and then I fell down an optimization rabbit hole. I think it might be time to clean up some code a little, remove unnecessary comments. 
+
+## 18/12/2025 5:07
+I did a little work on the structure of the config file and now closer resembles the structure of the code with the scene object and stuff, and it is more readable now with named variables inside Triangle and stuff instead of a single list containing multiple numbers for different things. 
