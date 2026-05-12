@@ -7,4 +7,4 @@ build/*
 out/*
 !out/
 
-external/glm/*
+# external/glm/*
