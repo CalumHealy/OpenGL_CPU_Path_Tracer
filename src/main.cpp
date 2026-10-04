@@ -120,6 +120,13 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     // r = rand8();
     // g = rand8();
     // b = rand8();
+    // --- Empty triangles list protection ---
+    if (state.scene->triangles.empty()) {
+        r = 0;
+        g = 0;
+        b = 0;
+        return;
+    }
     // --- Convert world space to screen space [?] ---
     float minX = std::min(
         state.scene->vertices[state.scene->triangles[0].v0][0],
@@ -181,6 +188,12 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     float d21 = glm::dot(v2, v1);
     // Compute barycentric coordinates
     float denom = d00 * d11 - d01 * d01;
+    if (std::abs(denom) < 1e-6f) {
+        r = 0;
+        g = 0;
+        b = 0;
+        return;
+    }
     float u = (d11 * d20 - d01 * d21) / denom;
     float v = (d00 * d21 - d01 * d20) / denom;
     float w = 1.0f - u - v;
@@ -221,7 +234,8 @@ void renderChunk(
             for (int c = 0; c < 3; c++) {
                 float val = accumPixels[i + c] * inv;
                 val = std::min(std::max(val, 0.0f), 255.0f);
-                pixels[i + c] = static_cast<unsigned char>(val);
+                // pixels[i + c] = static_cast<unsigned char>(val);
+                pixels.at(i + c) = static_cast<unsigned char>(val);
             }  
 
         }
@@ -314,23 +328,31 @@ int main() {
     // --- Create The Scene And Add Shapes ---
     Scene scene;
     state.scene = &scene;
-    scene.materials.push_back({
-        MaterialType::Lambertian,
-        {1.0f, 0.2f, 0.2f},
-        0.0f,
-        1.0f,
-        {0, 0, 0}
-    });
-    glm::vec3 vertex1 = {0,0,0};
-    scene.vertices.push_back(vertex1);
-    glm::vec3 vertex2 = {1,0,0};
-    scene.vertices.push_back(vertex2);
-    glm::vec3 vertex3 = {1,1,1};
-    scene.vertices.push_back(vertex3);
+    // scene.materials.push_back({
+    //     MaterialType::Lambertian,
+    //     {1.0f, 0.2f, 0.2f},
+    //     0.0f,
+    //     1.0f,
+    //     {0, 0, 0}
+    // });
+    // glm::vec3 vertex1 = {0,0,0};
+    // scene.vertices.push_back(vertex1);
+    // glm::vec3 vertex2 = {1,0,0};
+    // scene.vertices.push_back(vertex2);
+    // glm::vec3 vertex3 = {1,1,1};
+    // scene.vertices.push_back(vertex3);
 
-    glm::vec3 normal = {0,0,1};
-    Triangle triangle1 = {0,1,2, normal, 0};
-    scene.triangles.push_back(triangle1);
+    for (const auto& v : config["SCENE"]["VERTICES"]) {
+        glm::vec3 vertex(
+            v[0].get<float>(), 
+            v[1].get<float>(), 
+            v[2].get<float>());
+        scene.vertices.push_back(vertex);
+    }
+
+    // glm::vec3 normal = {0,0,1};
+    // Triangle triangle1 = {0,1,2, normal, 0};
+    // scene.triangles.push_back(triangle1);
 
     // --- Create camera ---
     Camera camera{
@@ -342,7 +364,21 @@ int main() {
     };
     state.camera = camera;
 
+    // --- Debug ---
+    std::cout << "Hello" << std::endl;
+    if (!scene.vertices.empty()) {
+        // glm::vec3 v = scene.vertices[0];
+        // std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
+        for (const auto& v : scene.vertices) {
+            std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
+        }
+    } else {
+        std::cout << "The vertices vector is empty" << std::endl;
+    }
+
+    std::cout << "Starting application loop" << std::endl;
     while (!glfwWindowShouldClose(window)) {
+        std::cout << "Calculating FPS" << std::endl;
         double now = glfwGetTime();
         frames++;
         if (now - lastTime >= 1.0) {
@@ -354,6 +390,7 @@ int main() {
         unsigned char r, g, b;
 
         // --- Fill pixel buffer with multithreading ---
+        std::cout << "Handling multithreading" << std::endl;
         int numThreads = std::thread::hardware_concurrency();
         if (numThreads == 0) numThreads = 4;  // fallback
 
@@ -363,27 +400,57 @@ int main() {
         int rowsPerThread = state.height / numThreads;
 
         for (int t = 0; t < numThreads; t++) {
+            std::cout << "Creating thread" << std::endl;
             int startY = t * rowsPerThread;
             int endY = (t == numThreads - 1) ? state.height : startY + rowsPerThread;
 
+            // threads.emplace_back(
+            //     renderChunk,
+            //     startY,
+            //     endY,
+            //     std::ref(accumPixels),
+            //     std::ref(pixels),
+            //     std::cref(state)
+            // );
             threads.emplace_back(
-                renderChunk,
-                startY,
-                endY,
-                std::ref(accumPixels),
-                std::ref(pixels),
-                std::cref(state)
+                [startY, endY, &accumPixels, &pixels, &state]() {
+                    try {
+                        std::cout << "Thread started: " << startY << " -> " << endY << std::endl;
+
+                        renderChunk(
+                            startY,
+                            endY,
+                            accumPixels,
+                            pixels,
+                            state
+                        );
+                        std::cout << "Thread finished" << std::endl;
+                    }
+                    catch (const std::exception& e) {
+                        std::cout << "Thread exception: " << e.what() << std::endl;
+                    }
+                    catch (...) {
+                        std::cout << "Unknown thread exception" << std::endl;
+                    }
+                }
             );
         }
         // Wait for all threads
-        for (auto& th : threads) th.join();
+        std::cout << "Waiting for threads" << std::endl;
+        for (auto& th : threads) {
+            if (th.joinable()) {
+                th.join();
+            }
+        }
         state.iterations++;
 
         // --- Draw FPS ---
+        std::cout << "Drawing FPS" << std::endl;
         std::string fpsText = "FPS: " + std::to_string((int)fps) + "\nHello";
         drawText(10,10,fpsText,pixels,state.width,state.height);
 
         // --- Upload pixels using PBO ---
+        std::cout << "Upload pixels using PBO" << std::endl;
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboIds[index]);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, state.width*state.height*3, nullptr, GL_STREAM_DRAW); // orphan previous data
         void* ptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);

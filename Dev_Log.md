@@ -162,3 +162,55 @@ I did a little work on the structure of the config file and now closer resembles
 
 ## 19/12/2025 8:25
 I have added the GLM folder to the repository. I must now continue working on the config file support. 
+
+## 16/4/2026 13:28
+I am trying to get back into this project, so I must figure out a few things again. I'm figuring out the general workflow with building and running and stuff. I want to investigate the scene object so I'm adding print statements to see what its values are. 
+
+## 12/5/2026 23:07
+I changed 
+```
+for (const auto& v : config["SCENE"]["VERTICES"]) {
+        glm::vec3 vertex(v[0],v[1],v[2]);
+        scene.vertices.push_back(vertex);
+    }
+``` 
+to 
+``` 
+for (const auto& v : config["SCENE"]["VERTICES"]) {
+        glm::vec3 vertex(
+            v[0].get<float>(), 
+            v[1].get<float>(), 
+            v[2].get<float>());
+        scene.vertices.push_back(vertex);
+    }
+``` 
+and now the program takes every vertex in the config file and prints them correctly, but the program now crashes after a second or two. I must figure out what is causing this.
+
+## 12/5/2026 23:32
+Using print statements I narrowed the problem down to these two lines: 
+```
+        for (auto& th : threads) th.join();
+        state.iterations++;
+```
+The second line is just my counter for path tracing passes. This should be fine, so it might be a thread issue. 
+
+## 13/5/2026 0:34
+The issue has been found. The program assumes there is at least one triangle at all times. At the start of calculatePixel() is accesses triangles[0], but there must be nothing there. I added the below to the start of calculatePixel() and now the program runs again, but no longer displays a triangle. 
+```
+ // --- Empty triangles list protection ---
+    if (state.scene->triangles.empty()) {
+        r = 0;
+        g = 0;
+        b = 0;
+        return;
+    }
+```
+I also added the below code at the end of calculatePixel() because if denom is 0 or close to 0, dividing by denom will cause issues. 
+```
+if (std::abs(denom) < 1e-6f) {
+        r = 0;
+        g = 0;
+        b = 0;
+        return;
+    }
+```
