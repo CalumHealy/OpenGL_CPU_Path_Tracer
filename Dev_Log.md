@@ -159,3 +159,6 @@ I'm not sure how I ended up doing all this when I'm supposed to be working on co
 
 ## 18/12/2025 5:07
 I did a little work on the structure of the config file and now closer resembles the structure of the code with the scene object and stuff, and it is more readable now with named variables inside Triangle and stuff instead of a single list containing multiple numbers for different things. 
+
+## 19/12/2025 8:25
+I have added the GLM folder to the repository. I must now continue working on the config file support. 

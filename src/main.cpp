@@ -244,6 +244,14 @@ int main() {
     state.iterations = 0;
     state.invWidth = 1.0f / state.width;
     state.invHeight = 1.0f / state.height;
+    // if (!config.contains("WIDTH")) {
+    //     std::cout << "Width parameter missing from config file. Defaulting to 1920." << std::endl;
+    //     state.width = 1920;
+    // } else if (!config["WIDTH"].is_number_integer() || config["WIDTH"].get<std::string>().empty()) {
+    //     std::cout << "WIDTH.type(): " << config["WIDTH"].type() << std::endl;
+    // } else {
+    //     state.width = config["WIDTH"];
+    // }
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
