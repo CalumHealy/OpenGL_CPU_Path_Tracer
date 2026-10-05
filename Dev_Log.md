@@ -214,3 +214,14 @@ if (std::abs(denom) < 1e-6f) {
         return;
     }
 ```
+
+## 5/10/2026 1:42
+Note on barycentric coordinates and ray-triangle intersection:  
+To calculate a ray-triangle intersection in 3D space, you can use one of two primary methods: the classic Geometric Method (which splits the problem into ray-plane intersection and an inside-outside test) or the highly optimized Moller-Trumbore intersection Algorithm (which solves for barycentric coordinates directly without needing the plane equation).  
+### Method 1: The Moller-Trumbore Algorithm  
+This is the industry standard because it is fast, highly efficient, and bypasses the need to precompute or store the triangle's plane equation. It translates the ray parameter t and the triangle's barycentric coordinates (u,v) into a linear system via Cramer's Rule.  
+### Method 2: The Geometric Method  
+This formulation splits the process logically into two distinct geometrical puzzles: computing where the ray crosses the triangle's flat plane, and testing if that specific coordinate sits inside the perimeter bounds.  
+
+## 5/10/2026 2:12
+I added a loop for every triangle to calculatePixel() so now every triangle will be rendered, instead of just the first one. Now I must implement the colours, then fix(remove) the scaling to fit triangles on the screen.  

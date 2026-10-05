@@ -127,87 +127,106 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
         b = 0;
         return;
     }
-    // --- Convert world space to screen space [?] ---
-    float minX = std::min(
-        state.scene->vertices[state.scene->triangles[0].v0][0],
-        std::min(
-            state.scene->vertices[state.scene->triangles[0].v1][0],
-            state.scene->vertices[state.scene->triangles[0].v2][0]
-        )
-    );
-    float maxX = std::max(
-        state.scene->vertices[state.scene->triangles[0].v0][0],
-        std::max(
-            state.scene->vertices[state.scene->triangles[0].v1][0],
-            state.scene->vertices[state.scene->triangles[0].v2][0]
-        )
-    );
-    float minY = std::min(
-        state.scene->vertices[state.scene->triangles[0].v0][1],
-        std::min(
-            state.scene->vertices[state.scene->triangles[0].v1][1],
-            state.scene->vertices[state.scene->triangles[0].v2][1]
-        )
-    );
-    float maxY = std::max(
-        state.scene->vertices[state.scene->triangles[0].v0][1],
-        std::max(
-            state.scene->vertices[state.scene->triangles[0].v1][1],
-            state.scene->vertices[state.scene->triangles[0].v2][1]
-        )
-    );
-    float triangleWidth = maxX - minX;
-    float triangleHeight = maxY - minY;
-    float scaleX = state.width / triangleWidth;
-    float scaleY = state.height / triangleHeight;
-    float scale = std::min(scaleX, scaleY);
-    std::vector<glm::vec2> screenVertices;
-    for (const glm::vec3& vertex : {
-        state.scene->vertices[state.scene->triangles[0].v0],
-        state.scene->vertices[state.scene->triangles[0].v1],
-        state.scene->vertices[state.scene->triangles[0].v2]
-    }) {
-        float screenX = (vertex.x - minX) * scale;
-        float screenY = (vertex.y - minY) * scale;
-        screenVertices.push_back(glm::vec2(screenX, screenY));
-    }
-    glm::vec2 A = screenVertices[0];
-    glm::vec2 B = screenVertices[1];
-    glm::vec2 C = screenVertices[2];
 
-    glm::vec2 P(x, y);
-    // Vectors from A
-    glm::vec2 v0 = B - A;
-    glm::vec2 v1 = C - A;
-    glm::vec2 v2 = P - A;
-    // Compute dot products
-    float d00 = glm::dot(v0, v0);
-    float d01 = glm::dot(v0, v1);
-    float d11 = glm::dot(v1, v1);
-    float d20 = glm::dot(v2, v0);
-    float d21 = glm::dot(v2, v1);
-    // Compute barycentric coordinates
-    float denom = d00 * d11 - d01 * d01;
-    if (std::abs(denom) < 1e-6f) {
-        r = 0;
-        g = 0;
-        b = 0;
-        return;
-    }
-    float u = (d11 * d20 - d01 * d21) / denom;
-    float v = (d00 * d21 - d01 * d20) / denom;
-    float w = 1.0f - u - v;
+    // Start pixel as black
+    r = 0;
+    g = 0;
+    b = 0;
 
-    bool inside = (u >= 0) && (v >= 0) && (w >= 0);
+    // Check every triangle in the scene
+    for (const Triangle& triangle : state.scene->triangles) {
+        // --- Convert world space to screen space [?] ---
+        float minX = std::min(
+            state.scene->vertices[triangle.v0][0],
+            std::min(
+                state.scene->vertices[triangle.v1][0],
+                state.scene->vertices[triangle.v2][0]
+            )
+        );
+        float maxX = std::max(
+            state.scene->vertices[triangle.v0][0],
+            std::max(
+                state.scene->vertices[triangle.v1][0],
+                state.scene->vertices[triangle.v2][0]
+            )
+        );
+        float minY = std::min(
+            state.scene->vertices[triangle.v0][1],
+            std::min(
+                state.scene->vertices[triangle.v1][1],
+                state.scene->vertices[triangle.v2][1]
+            )
+        );
+        float maxY = std::max(
+            state.scene->vertices[triangle.v0][1],
+            std::max(
+                state.scene->vertices[triangle.v1][1],
+                state.scene->vertices[triangle.v2][1]
+            )
+        );
 
-    if (inside) {
-        r = 255;
-        g = 255;
-        b = 255;
-    } else {
-        r = 0;
-        g = 0;
-        b = 0;
+        float triangleWidth = maxX - minX;
+        float triangleHeight = maxY - minY;
+
+        // Avoid division by 0 for flat triangle
+        if (triangleWidth <= 0.0f || triangleHeight <= 0.0f) {
+            continue;
+        }
+
+        float scaleX = state.width / triangleWidth;
+        float scaleY = state.height / triangleHeight;
+        float scale = std::min(scaleX, scaleY);
+        std::vector<glm::vec2> screenVertices;
+        for (const glm::vec3& vertex : {
+            state.scene->vertices[triangle.v0],
+            state.scene->vertices[triangle.v1],
+            state.scene->vertices[triangle.v2]
+        }) {
+            float screenX = (vertex.x - minX) * scale;
+            float screenY = (vertex.y - minY) * scale;
+            screenVertices.push_back(glm::vec2(screenX, screenY));
+        }
+        glm::vec2 A = screenVertices[0];
+        glm::vec2 B = screenVertices[1];
+        glm::vec2 C = screenVertices[2];
+
+        glm::vec2 P(x, y);
+        // Vectors from A
+        glm::vec2 v0 = B - A;
+        glm::vec2 v1 = C - A;
+        glm::vec2 v2 = P - A;
+        // Compute dot products
+        float d00 = glm::dot(v0, v0);
+        float d01 = glm::dot(v0, v1);
+        float d11 = glm::dot(v1, v1);
+        float d20 = glm::dot(v2, v0);
+        float d21 = glm::dot(v2, v1);
+        // Compute barycentric coordinates
+        float denom = d00 * d11 - d01 * d01; // This checks if two lines are parallel and therefore the triangle is flat (invalid)
+        if (std::abs(denom) < 1e-6f) { // If invalid, return black pixel
+            // r = 0;
+            // g = 0;
+            // b = 0;
+            // return;
+            continue;
+        }
+
+        float u = (d11 * d20 - d01 * d21) / denom;
+        float v = (d00 * d21 - d01 * d20) / denom;
+        float w = 1.0f - u - v;
+
+        bool inside = (u >= 0) && (v >= 0) && (w >= 0);
+
+        if (inside) {
+            r = 255;
+            g = 255;
+            b = 255;
+        // } else {
+        //     r = 0;
+        //     g = 0;
+        //     b = 0;
+            return;
+        }
     }
 }
 
@@ -328,19 +347,21 @@ int main() {
     // --- Create The Scene And Add Shapes ---
     Scene scene;
     state.scene = &scene;
-    // scene.materials.push_back({
-    //     MaterialType::Lambertian,
-    //     {1.0f, 0.2f, 0.2f},
-    //     0.0f,
-    //     1.0f,
-    //     {0, 0, 0}
-    // });
-    // glm::vec3 vertex1 = {0,0,0};
-    // scene.vertices.push_back(vertex1);
-    // glm::vec3 vertex2 = {1,0,0};
-    // scene.vertices.push_back(vertex2);
-    // glm::vec3 vertex3 = {1,1,1};
-    // scene.vertices.push_back(vertex3);
+    scene.materials.push_back({
+        MaterialType::Lambertian, // MaterialType type
+        {1.0f, 0.2f, 0.2f},       // glm::vec3 albedo
+        0.0f,                     // float roughness
+        1.0f,                     // float refractiveIndex
+        {0, 0, 0}                 // glm::vec3 emission
+    });
+    glm::vec3 vertex1 = {0,0,0};
+    scene.vertices.push_back(vertex1);
+    glm::vec3 vertex2 = {1,0,0};
+    scene.vertices.push_back(vertex2);
+    glm::vec3 vertex3 = {1,1,1};
+    scene.vertices.push_back(vertex3);
+    glm::vec3 vertex4 = {0,1,1};
+    scene.vertices.push_back(vertex4);
 
     for (const auto& v : config["SCENE"]["VERTICES"]) {
         glm::vec3 vertex(
@@ -350,9 +371,11 @@ int main() {
         scene.vertices.push_back(vertex);
     }
 
-    // glm::vec3 normal = {0,0,1};
-    // Triangle triangle1 = {0,1,2, normal, 0};
-    // scene.triangles.push_back(triangle1);
+    glm::vec3 normal = {0,0,1};
+    Triangle triangle1 = {0,1,2, normal, 0};
+    scene.triangles.push_back(triangle1);
+    Triangle triangle2 = {0,1,3, normal, 0};
+    scene.triangles.push_back(triangle2);
 
     // --- Create camera ---
     Camera camera{
