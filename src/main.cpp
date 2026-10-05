@@ -218,13 +218,12 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
         bool inside = (u >= 0) && (v >= 0) && (w >= 0);
 
         if (inside) {
-            r = 255;
-            g = 255;
-            b = 255;
-        // } else {
-        //     r = 0;
-        //     g = 0;
-        //     b = 0;
+            // r = 255;
+            // g = 255;
+            // b = 255;
+            r = state.scene->materials[triangle.materialID].albedo.r * 255;
+            g = state.scene->materials[triangle.materialID].albedo.g * 255;
+            b = state.scene->materials[triangle.materialID].albedo.b * 255;
             return;
         }
     }
@@ -354,6 +353,13 @@ int main() {
         1.0f,                     // float refractiveIndex
         {0, 0, 0}                 // glm::vec3 emission
     });
+    scene.materials.push_back({
+        MaterialType::Lambertian, // MaterialType type
+        {0.0f, 0.0f, 1.0f},       // glm::vec3 albedo
+        0.0f,                     // float roughness
+        1.0f,                     // float refractiveIndex
+        {0, 0, 0}                 // glm::vec3 emission
+    });
     glm::vec3 vertex1 = {0,0,0};
     scene.vertices.push_back(vertex1);
     glm::vec3 vertex2 = {1,0,0};
@@ -374,7 +380,7 @@ int main() {
     glm::vec3 normal = {0,0,1};
     Triangle triangle1 = {0,1,2, normal, 0};
     scene.triangles.push_back(triangle1);
-    Triangle triangle2 = {0,1,3, normal, 0};
+    Triangle triangle2 = {0,1,3, normal, 1};
     scene.triangles.push_back(triangle2);
 
     // --- Create camera ---

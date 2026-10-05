@@ -225,3 +225,6 @@ This formulation splits the process logically into two distinct geometrical puzz
 
 ## 5/10/2026 2:12
 I added a loop for every triangle to calculatePixel() so now every triangle will be rendered, instead of just the first one. Now I must implement the colours, then fix(remove) the scaling to fit triangles on the screen.  
+
+## 5/10/2026 2:25
+I've implemented the colours, so now they render correctly. In the materials colours are currently being represented by float values between 0 and 1 in albedo, but the rendering uses ints from 0 to 255. I might change the albedo to use 0-255 instead.  
