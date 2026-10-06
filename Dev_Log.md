@@ -228,3 +228,15 @@ I added a loop for every triangle to calculatePixel() so now every triangle will
 
 ## 5/10/2026 2:25
 I've implemented the colours, so now they render correctly. In the materials colours are currently being represented by float values between 0 and 1 in albedo, but the rendering uses ints from 0 to 255. I might change the albedo to use 0-255 instead.  
+
+## 5/10/2026 19:42
+Changed colour values in materials in config file to 0-1 floats rather than 0-255 ints. It is best to use 0-1 floats throughout, except for when outputting at the end. 0-255 is best there.  
+
+## 5/10/2026 22:12
+Changed the normal value in the Triangle struct to an int so it is an index for the normals vector in the Scene object, instead of a unique vec3.  
+
+## 5/10/2026 23:03
+Removed the ID field from the materials in the config file as it is uneccessary. The position in the array is the materials identifier.  
+
+## 6/10/2026 2:52
+I've attempted to add full config file support. I think it was all working except the materials, then I tried to add materials and now the program is broken. Crashes on launch. Must fix. 

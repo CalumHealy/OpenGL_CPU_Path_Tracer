@@ -65,7 +65,7 @@ struct Camera {
 
 struct Triangle {
     int v0, v1, v2;
-    glm::vec3 normal;
+    int normalID;
     int materialID;
 };
 
@@ -81,6 +81,7 @@ struct Material {
 
 struct Scene {
     std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
     std::vector<Triangle> triangles;
     std::vector<Material> materials;
 };
@@ -346,28 +347,67 @@ int main() {
     // --- Create The Scene And Add Shapes ---
     Scene scene;
     state.scene = &scene;
-    scene.materials.push_back({
-        MaterialType::Lambertian, // MaterialType type
-        {1.0f, 0.2f, 0.2f},       // glm::vec3 albedo
-        0.0f,                     // float roughness
-        1.0f,                     // float refractiveIndex
-        {0, 0, 0}                 // glm::vec3 emission
-    });
-    scene.materials.push_back({
-        MaterialType::Lambertian, // MaterialType type
-        {0.0f, 0.0f, 1.0f},       // glm::vec3 albedo
-        0.0f,                     // float roughness
-        1.0f,                     // float refractiveIndex
-        {0, 0, 0}                 // glm::vec3 emission
-    });
-    glm::vec3 vertex1 = {0,0,0};
-    scene.vertices.push_back(vertex1);
-    glm::vec3 vertex2 = {1,0,0};
-    scene.vertices.push_back(vertex2);
-    glm::vec3 vertex3 = {1,1,1};
-    scene.vertices.push_back(vertex3);
-    glm::vec3 vertex4 = {0,1,1};
-    scene.vertices.push_back(vertex4);
+
+    // scene.materials.push_back({
+    //     MaterialType::Lambertian, // MaterialType type
+    //     {1.0f, 0.2f, 0.2f},       // glm::vec3 albedo
+    //     0.0f,                     // float roughness
+    //     1.0f,                     // float refractiveIndex
+    //     {0, 0, 0}                 // glm::vec3 emission
+    // });
+    // scene.materials.push_back({
+    //     MaterialType::Lambertian, // MaterialType type
+    //     {0.0f, 0.0f, 1.0f},       // glm::vec3 albedo
+    //     0.0f,                     // float roughness
+    //     1.0f,                     // float refractiveIndex
+    //     {0, 0, 0}                 // glm::vec3 emission
+    // });
+    for (const auto& m : config["SCENE"]["MATERIALS"]) {
+        MaterialType type;
+        std::string typeString = m["TYPE"].get<std::string>();
+        if(typeString == "Lambertian")
+            type = MaterialType::Lambertian;
+        else if (typeString == "Metal")
+            type = MaterialType::Metal;
+        else if (typeString == "Dielectric")
+            type = MaterialType::Dielectric;
+        else if (typeString == "Emissive")
+            type = MaterialType::Emissive;
+        else
+            throw std::runtime_error("Unknown material type: " + typeString);
+        
+        glm::vec3 albedo(
+            m["ALBEDO"][0].get<float>(),
+            m["ALBEDO"][1].get<float>(),
+            m["ALBEDO"][2].get<float>()
+        );
+
+        float roughness = m["ROUGHNESS"].get<float>();
+        float refractiveIndex = m["REFRACTIVE_INDEX"].get<float>();
+
+        glm::vec3 emission(
+            m["EMISSION"][0].get<float>(),
+            m["EMISSION"][1].get<float>(),
+            m["EMISSION"][2].get<float>()
+        );
+
+        scene.materials.push_back({
+            type,
+            albedo,
+            roughness,
+            refractiveIndex,
+            emission
+        });
+    }
+
+    // glm::vec3 vertex1 = {0,0,0};
+    // scene.vertices.push_back(vertex1);
+    // glm::vec3 vertex2 = {1,0,0};
+    // scene.vertices.push_back(vertex2);
+    // glm::vec3 vertex3 = {1,1,1};
+    // scene.vertices.push_back(vertex3);
+    // glm::vec3 vertex4 = {0,1,1};
+    // scene.vertices.push_back(vertex4);
 
     for (const auto& v : config["SCENE"]["VERTICES"]) {
         glm::vec3 vertex(
@@ -377,11 +417,33 @@ int main() {
         scene.vertices.push_back(vertex);
     }
 
-    glm::vec3 normal = {0,0,1};
-    Triangle triangle1 = {0,1,2, normal, 0};
-    scene.triangles.push_back(triangle1);
-    Triangle triangle2 = {0,1,3, normal, 1};
-    scene.triangles.push_back(triangle2);
+    // glm::vec3 normal = {0,0,1};
+
+    for (const auto& n : config["SCENE"]["NORMALS"]) {
+        glm::vec3 normal(
+            n[0].get<float>(),
+            n[1].get<float>(),
+            n[2].get<float>()
+        );
+        scene.normals.push_back(normal);
+    }
+
+    // Triangle triangle1 = {0,1,2, normal, 0};
+    // scene.triangles.push_back(triangle1);
+    // Triangle triangle2 = {0,1,3, normal, 1};
+    // scene.triangles.push_back(triangle2);
+
+    for (const auto& t : config["SCENE"]["TRIANGLES"]) { // For each triangle in the config file (each triangle will be referenced inside the loop as t)
+        Triangle triangle{ // Create a triangle object
+            // Asign values from t (config triangle) to new triangle object
+            t["VERTICES"][0].get<int>(),
+            t["VERTICES"][1].get<int>(),
+            t["VERTICES"][2].get<int>(),
+            t["NORMAL"].get<int>(),
+            t["MATERIAL"].get<int>()
+        };
+        scene.triangles.push_back(triangle); // Add new triangle object to scene
+    }
 
     // --- Create camera ---
     Camera camera{
