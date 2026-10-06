@@ -18,18 +18,27 @@
                 "VERTICES": [0, 1, 2],
                 "NORMAL": 0, 
                 "MATERIAL": 0
+            },
+            {
+                "VERTICES": [1, 2, 3],
+                "NORMAL": 0,
+                "MATERIAL": 1
             }
         ],
         "MATERIALS": [
             {
-                "COLOUR": [1.0, 1.0, 1.0],
-                "SMOOTHNESS": 0.0,
-                "OPACITY": 1.0
+                "TYPE": "Lambertian",
+                "ALBEDO": [1.0, 1.0, 1.0],
+                "ROUGHNESS": 1.0,
+                "REFRACTIVE_INDEX": 1.0,
+                "EMISSION": [0.0, 0.0, 0.0]
             },
             {
-                "COLOUR": [1.0, 1.0, 0.0],
-                "SMOOTHNESS": 0.0,
-                "OPACITY": 1.0
+                "TYPE": "Lambertian",
+                "ALBEDO": [1.0, 1.0, 0.0],
+                "ROUGHNESS": 1.0,
+                "REFRACTIVE_INDEX": 1.0,
+                "EMISSION": [0.0, 0.0, 0.0]
             }
         ]
     },

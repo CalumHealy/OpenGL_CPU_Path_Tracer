@@ -239,4 +239,7 @@ Changed the normal value in the Triangle struct to an int so it is an index for 
 Removed the ID field from the materials in the config file as it is uneccessary. The position in the array is the materials identifier.  
 
 ## 6/10/2026 2:52
-I've attempted to add full config file support. I think it was all working except the materials, then I tried to add materials and now the program is broken. Crashes on launch. Must fix. 
+I've attempted to add full config file support. I think it was all working except the materials, then I tried to add materials and now the program is broken. Crashes on launch. Must fix.  
+
+## 6/10/2026 20:09
+The issue was with the config file containing different values in the materials to what the main file was expecting. I made the two the same and now it works. It renders every triangle in the config file. I may have to change what values are in there, depending on what I need for the rendering.  
