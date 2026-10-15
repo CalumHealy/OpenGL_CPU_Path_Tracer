@@ -23,6 +23,11 @@
                 "VERTICES": [1, 2, 3],
                 "NORMAL": 0,
                 "MATERIAL": 1
+            },
+            {
+                "VERTICES": [2, 3, 4],
+                "NORMAL": 0,
+                "MATERIAL": 2
             }
         ],
         "MATERIALS": [
@@ -36,6 +41,13 @@
             {
                 "TYPE": "Lambertian",
                 "ALBEDO": [1.0, 1.0, 0.0],
+                "ROUGHNESS": 1.0,
+                "REFRACTIVE_INDEX": 1.0,
+                "EMISSION": [0.0, 0.0, 0.0]
+            },
+            {
+                "TYPE": "Lambertian",
+                "ALBEDO": [1.0, 0.0, 1.0],
                 "ROUGHNESS": 1.0,
                 "REFRACTIVE_INDEX": 1.0,
                 "EMISSION": [0.0, 0.0, 0.0]

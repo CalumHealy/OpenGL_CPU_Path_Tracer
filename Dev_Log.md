@@ -243,3 +243,14 @@ I've attempted to add full config file support. I think it was all working excep
 
 ## 6/10/2026 20:09
 The issue was with the config file containing different values in the materials to what the main file was expecting. I made the two the same and now it works. It renders every triangle in the config file. I may have to change what values are in there, depending on what I need for the rendering.  
+
+## 7/10/2026 21:46
+I'm working on the ray calculations now. I seem to have the correct formula for converting from camera space vector to world space:
+```
+glm::vec3 rayWorld = 
+    rayCamera.x * state.camera.right
+  + rayCamera.y * state.camera.up
+  + rayCamera.z * state.camera.forward;
+rayWorld = glm::normalize(rayWorld);
+```
+I had a line written out dividing the FOV by the number of pixels, but then realized that the closer to each edge of the screen you go, the less degrees each pixel gets. It is not constant. 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <array>
 #include <string>
+#include <random>
 #include <nlohmann/json.hpp>
 #include "font8x8_basic.h"
 #include <glm/glm.hpp>
@@ -129,10 +130,41 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
         return;
     }
 
+    // Random colours
+    // r, g, b = rand8();
+
+    // std::random_device rd;
+    // std::mt19937 generator(rd());
+    // std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+    // float randomValueR = distribution(generator) * 255.0;
+    // float randomValueG = distribution(generator) * 255.0;
+    // float randomValueB = distribution(generator) * 255.0;
+    // r = randomValueR;
+    // g = randomValueG;
+    // b = randomValueB;
+    // return;
+
     // Start pixel as black
     r = 0;
     g = 0;
     b = 0;
+
+    // Calculate ray
+    Ray ray;
+    ray.origin = state.camera.position;
+    glm::vec3 rayCameraVector; // The rays direction relative to the camera
+    float halfWidth = state.width / 2; // The number of degrees for a pixel changes depending on which pixel it is
+    float halfFOV = state.camera.fov / 2;
+    bool leftOfCamera;
+    if (x < halfWidth) {
+        leftOfCamera = true;
+    } else {
+        leftOfCamera = false;
+    }
+    // The halfFOV value is the angle, opp is halfWidth, I need to find adjacent, then use that to find opp for the specific pixel
+    glm::vec3 rayWorldVector; // The rays direction relative to the world
+    ray.direction = rayWorldVector;
+    ray.direction = state.camera.forward; // TODO implement ray direction calculation based on FOV and pixel
 
     // Check every triangle in the scene
     for (const Triangle& triangle : state.scene->triangles) {
