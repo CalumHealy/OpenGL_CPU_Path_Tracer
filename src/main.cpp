@@ -115,6 +115,44 @@ inline uint8_t rand8() {
     return (uint8_t)(seed & 0xFF);
 }
 
+std::optional<glm::vec3> ray_intersects_triangle(const RenderState state, const glm::vec3 &ray_origin, const glm::vec3 &ray_vector, const Triangle& triangle) {
+    constexpr float epsilon = std::numeric_limits<float>::epsilon();
+
+    glm::vec3 edge1 = state.scene->vertices[triangle.v1] - state.scene->vertices[triangle.v0];
+    glm::vec3 edge2 = state.scene->vertices[triangle.v2] - state.scene->vertices[triangle.v0];
+
+    // Backface culling, assuming CCW-wound triangles (vertices listed in counter-clockwise order when facing front of triangle)
+    // I won't use this for now as my triangle vertices are listed randomly and I want to render both sides
+    // const glm::vec3 normal = cross(edge1, edge2);
+    // if (dot(normal, ray_vector) > 0) return {};
+
+    glm::vec3 ray_cross_e2 = cross(ray_vector, edge2);
+    float det = dot(edge1, ray_cross_e2);
+
+    if (abs(det) < epsilon) return {}; // Ray is parallel to triangle
+
+    float inv_det = 1.0 / det;
+    glm::vec3 s = ray_origin - state.scene->vertices[triangle.v0];
+    float u = inv_det * dot(s, ray_cross_e2);
+
+    if (u < -epsilon || u - 1 > epsilon) return {}; // Ray passes outside edge2's bounds
+
+    glm::vec3 s_cross_e1 = cross(s, edge1);
+    float v = inv_det * dot(ray_vector, s_cross_e1);
+
+    if (v < -epsilon || u + v - 1 > epsilon) return {}; // Ray passes outside edge1's bounds
+
+    // The ray line intersects with the triangle
+    // We compute t to find where on the ray the intersection is
+    float t = inv_det * dot(edge2, s_cross_e1);
+
+    if (t > epsilon) { // Ray intersection
+        return glm::vec3(ray_origin + ray_vector * t); // Adding the vector multiplied by the distance onto the origin gives the intersection position
+    } else { // This means that there is a line intersection but not a ray intersection
+        return {};
+    }
+}
+
 void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, const RenderState& state) {
     // X is number of pixel across length of screen (0 - WIDTH)
     // Y is number of pixel down screen (0 - HEIGHT)
@@ -205,12 +243,6 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
         OppY = halfHeight - y;
     }
     rayCameraVector = normalizeRay(glm::vec3(OppX, OppY, Adj));
-    // std::cout << "rayCameraVector: ";
-    // std::cout << rayCameraVector.x;
-    // std::cout << ",";
-    // std::cout << rayCameraVector.y;
-    // std::cout << ",";
-    // std::cout << rayCameraVector.z << std::endl;
     glm::vec3 rayWorldVector; // The rays direction relative to the world
     rayWorldVector = 
         rayCameraVector.x * state.camera.right
@@ -218,12 +250,6 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
       + rayCameraVector.z * state.camera.forward;
     rayWorldVector = normalizeRay(rayWorldVector);
     ray.direction = rayWorldVector;
-    // std::cout << "rayWorldVector: ";
-    // std::cout << rayWorldVector.x;
-    // std::cout << ",";
-    // std::cout << rayWorldVector.y;
-    // std::cout << ",";
-    // std::cout << rayWorldVector.z << std::endl;
 
     // Check every triangle in the scene
     for (const Triangle& triangle : state.scene->triangles) {
@@ -321,6 +347,103 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     }
 }
 
+void calculatePixel2(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, const RenderState& state) {
+    // X is number of pixel across length of screen (0 - WIDTH)
+    // Y is number of pixel down screen (0 - HEIGHT)
+    // r, g, and b are references to the values for the pixel colour
+    // --- Empty triangles list protection ---
+    if (state.scene->triangles.empty()) {
+        r = 0;
+        g = 0;
+        b = 0;
+        return;
+    }
+
+    r = 0;
+    g = 0;
+    b = 0;
+
+    // Calculate ray
+    Ray ray;
+    ray.origin = state.camera.position;
+    glm::vec3 rayCameraVector; // The rays direction relative to the camera
+    float halfWidth = state.width / 2; // The number of degrees for a pixel changes depending on which pixel it is
+    float halfHeight = state.height / 2;
+    float halfFOV = state.camera.fov / 2;
+    bool leftOfCamera;
+    if (x < halfWidth) {
+        leftOfCamera = true;
+    } else {
+        leftOfCamera = false;
+    }
+    // The halfFOV value is the angle, Opp is halfWidth, I need to find adjacent, then use that to find opp for the specific pixel
+    // SOHCAHTOA
+    // Opp and Adj -> TOA
+    // tan(angle) = Opp/Adj
+    // tan(halfFOV) = halfWidth/x
+    // tan(halfFOV)(x) = halfWidth
+    // x = halfWidth/tan(halfFOV)
+    // However, tan() expects radians rather than degrees, so:
+    // Degrees = Radians * 180/Pi
+    // x = halfWidth/tan(halfFOV/(180/Pi))
+    float Adj = halfWidth / tan(halfFOV/(180/PI));
+    // Now, I can simply use Adj and calculate OppX using the pixel value
+    float OppX;
+    if (leftOfCamera) {
+        OppX = (0 - halfWidth) + x;
+    } else {
+        OppX = x - halfWidth;
+    }
+    // Now calculate OppY
+    bool aboveCamera;
+    if (y < halfHeight) {
+        aboveCamera = true;
+    } else {
+        aboveCamera = false;
+    }
+    float OppY;
+    if (aboveCamera) {
+        OppY = y + halfHeight;
+    } else {
+        OppY = halfHeight - y;
+    }
+    rayCameraVector = normalizeRay(glm::vec3(OppX, OppY, Adj));
+    glm::vec3 rayWorldVector; // The rays direction relative to the world
+    rayWorldVector = 
+        rayCameraVector.x * state.camera.right
+      + rayCameraVector.y * state.camera.up
+      + rayCameraVector.z * state.camera.forward;
+    rayWorldVector = normalizeRay(rayWorldVector);
+    ray.direction = rayWorldVector;
+
+    // Set up "z-buffer"
+    float closestT = std::numeric_limits<float>::infinity();
+
+    std::optional<glm::vec3> closestHit;
+    const Triangle* closestTriangle = nullptr;
+
+    // Check every triangle in the scene
+    for (const Triangle& triangle : state.scene->triangles) {
+        auto hit = ray_intersects_triangle(state, ray.origin, rayWorldVector, triangle);
+
+        if (hit) {
+            float t = glm::dot(*hit - ray.origin, ray.direction);
+            
+            if (t < closestT && t > 0.0f) {
+                closestT = t;
+                closestHit = *hit;
+                closestTriangle = &triangle;
+            }
+        }
+    }
+
+    if (closestHit) {
+        r = state.scene->materials[closestTriangle->materialID].albedo.r * 255;
+        g = state.scene->materials[closestTriangle->materialID].albedo.g * 255;
+        b = state.scene->materials[closestTriangle->materialID].albedo.b * 255;
+    }
+}
+
 void renderChunk(
     int startY, int endY,
     std::vector<float>& accumPixels,
@@ -335,7 +458,7 @@ void renderChunk(
             int i = (y * width + x) * 3;
             unsigned char r, g, b;
 
-            calculatePixel(x, y, r, g, b, state);
+            calculatePixel2(x, y, r, g, b, state);
 
             accumPixels[i + 0] += (float)r;
             accumPixels[i + 1] += (float)g;
