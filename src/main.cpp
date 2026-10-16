@@ -15,6 +15,7 @@ using json = nlohmann::json;
 
 // const unsigned int WIDTH = 1920;
 // const unsigned int HEIGHT = 1080;
+constexpr double PI = 3.14159265358979323846;
 
 const char* vertexShaderSource = R"(
 #version 330 core
@@ -154,6 +155,7 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     ray.origin = state.camera.position;
     glm::vec3 rayCameraVector; // The rays direction relative to the camera
     float halfWidth = state.width / 2; // The number of degrees for a pixel changes depending on which pixel it is
+    float halfHeight = state.height / 2;
     float halfFOV = state.camera.fov / 2;
     bool leftOfCamera;
     if (x < halfWidth) {
@@ -161,10 +163,67 @@ void calculatePixel(int x, int y, unsigned char& r, unsigned char& g, unsigned c
     } else {
         leftOfCamera = false;
     }
-    // The halfFOV value is the angle, opp is halfWidth, I need to find adjacent, then use that to find opp for the specific pixel
+    // The halfFOV value is the angle, Opp is halfWidth, I need to find adjacent, then use that to find opp for the specific pixel
+    // SOHCAHTOA
+    // Opp and Adj -> TOA
+    // tan(angle) = Opp/Adj
+    // tan(halfFOV) = halfWidth/x
+    // tan(halfFOV)(x) = halfWidth
+    // x = halfWidth/tan(halfFOV)
+    // However, tan() expects radians rather than degrees, so:
+    // Degrees = Radians * 180/Pi
+    // x = halfWidth/tan(halfFOV/(180/Pi))
+    float Adj = halfWidth / tan(halfFOV/(180/PI));
+    // std::cout << "halfWidth: ";
+    // std::cout << halfWidth << std::endl;
+    // std::cout << "halfFOV: ";
+    // std::cout << halfFOV << std::endl;
+    // std::cout << "Adj: ";
+    // std::cout << Adj << std::endl;
+    // Now, I can simply use Adj and calculate OppX using the pixel value
+    float OppX;
+    if (leftOfCamera) {
+        OppX = (0 - halfWidth) + x;
+    } else {
+        OppX = x - halfWidth;
+    }
+    // std::cout << "OppX: ";
+    // std::cout << OppX << std::endl;
+    // std::cout << "Y: ";
+    // std::cout << y << std::endl;
+    // Now calculate OppY
+    bool aboveCamera;
+    if (y < halfHeight) {
+        aboveCamera = true;
+    } else {
+        aboveCamera = false;
+    }
+    float OppY;
+    if (aboveCamera) {
+        OppY = y + halfHeight;
+    } else {
+        OppY = halfHeight - y;
+    }
+    rayCameraVector = normalizeRay(glm::vec3(OppX, OppY, Adj));
+    // std::cout << "rayCameraVector: ";
+    // std::cout << rayCameraVector.x;
+    // std::cout << ",";
+    // std::cout << rayCameraVector.y;
+    // std::cout << ",";
+    // std::cout << rayCameraVector.z << std::endl;
     glm::vec3 rayWorldVector; // The rays direction relative to the world
+    rayWorldVector = 
+        rayCameraVector.x * state.camera.right
+      + rayCameraVector.y * state.camera.up
+      + rayCameraVector.z * state.camera.forward;
+    rayWorldVector = normalizeRay(rayWorldVector);
     ray.direction = rayWorldVector;
-    ray.direction = state.camera.forward; // TODO implement ray direction calculation based on FOV and pixel
+    // std::cout << "rayWorldVector: ";
+    // std::cout << rayWorldVector.x;
+    // std::cout << ",";
+    // std::cout << rayWorldVector.y;
+    // std::cout << ",";
+    // std::cout << rayWorldVector.z << std::endl;
 
     // Check every triangle in the scene
     for (const Triangle& triangle : state.scene->triangles) {
